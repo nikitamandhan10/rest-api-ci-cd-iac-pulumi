@@ -1,0 +1,10 @@
+encryptionsalt: v1:+sLTLYbjBuc=:v1:zfMKKO7w4CcoSwBj:8B2zdTGvccyBR/z8zwxc7VDWF1wsgA==
+config:
+  aws:profile: demo
+  aws:region: eu-west-2
+  pulumi_test:igw_name: cyse6225-igw
+  pulumi_test:priavte_route_table: private_RT
+  pulumi_test:public_route_table: public_RT
+  pulumi_test:vpc_cidr_block: 10.0.0.0/16
+  pulumi_test:vpc_igw_attachment: vpc_igw_attachment
+  pulumi_test:vpc_name: cyse6225-vpc
