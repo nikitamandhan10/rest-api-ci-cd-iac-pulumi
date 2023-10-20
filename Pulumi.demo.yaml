@@ -15,4 +15,5 @@ config:
   pulumi_test:ec2_instance_name: api_instance
   pulumi_test:instance_type: t2.micro
   pulumi_test:security_group_name: application security group
+  pulumi_test:myami: ami-06c75899349e9e00a
 
