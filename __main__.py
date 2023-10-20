@@ -135,10 +135,10 @@ aws.ec2.SecurityGroupIngressArgs(
     })
 
 #getting my recently created AMI ID
-myami = aws.ec2.get_ami(executable_users=["self"],
-                        most_recent=True)
+# myami = aws.ec2.get_ami(executable_users=["self"],
+#                         most_recent=True)
 
-print(myami.id)
+# print(myami.id)
 
 #getting key-pair
 key_pair = aws.ec2.get_key_pair(key_name=config.require('key_name'),
@@ -151,7 +151,7 @@ print("id", key_pair.id)
 
 #creating ec2 instance
 web = aws.ec2.Instance("web",
-    ami=myami.id,
+    ami=config.require('myami'),
     key_name=key_pair.key_name,
     instance_type=config.require('instance_type'),
     subnet_id=public_subnets[0].id,
