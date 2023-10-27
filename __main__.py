@@ -215,7 +215,7 @@ echo "username={args[0]}" >> $ENV_FILE
 echo "password={args[1]}" >> $ENV_FILE
 echo "endpoint={args[2]}" >> $ENV_FILE
 chown csye6225:csye6225 $ENV_FILE
-chmod 777 $ENV_FILE
+chmod 755 $ENV_FILE
 """)
 
 #creating ec2 instance
