@@ -91,7 +91,7 @@ private_RT = aws.ec2.RouteTable(config.require('priavte_route_table'),
         "Name": config.require('priavte_route_table'),
     })
 
-#Creating Security group
+#Creating application Security group
 app_security_grp = aws.ec2.SecurityGroup("application security group",
     description="application security group",
     vpc_id=myvpc.id,
@@ -134,6 +134,63 @@ aws.ec2.SecurityGroupIngressArgs(
         "Name": config.require('security_group_name'),
     })
 
+#Creating database Security group
+database_security_grp = aws.ec2.SecurityGroup("database_security_grp",
+    description="database_security_grp",
+    vpc_id=myvpc.id,
+    ingress=[aws.ec2.SecurityGroupIngressArgs(
+        description="database security group port 3306",
+        from_port=3306,
+        to_port=3306,
+        protocol="tcp",
+        security_groups=[app_security_grp.id],
+    ),
+    ],
+    egress=[aws.ec2.SecurityGroupEgressArgs(
+        from_port=0,
+        to_port=0,
+        protocol="-1",
+        cidr_blocks=["0.0.0.0/0"],
+    )],
+    tags={
+        "Name": config.require('db_security_group_name'),
+    })
+
+
+# Creating RDS Parameter group
+mariadbgrp = aws.rds.ParameterGroup("mariadbgrp",
+    family="mariadb10.6",
+    tags={
+        "Name": "mariadb-grp",
+    })
+
+
+private_subnet_group = aws.rds.SubnetGroup(
+    'mydb_subnetgroup',
+    subnet_ids=[subnet.id for subnet in private_subnets])
+
+
+#Creating RDS
+
+mariadb_rds = aws.rds.Instance("mariadb_rds",
+    allocated_storage=config.require('db_allocated_storage'),
+    engine=config.require('database'),
+    engine_version=config.require('engine_version'),
+    instance_class=config.require('db_instance_class'),
+    parameter_group_name=mariadbgrp.name,
+    skip_final_snapshot=True,
+    db_subnet_group_name=private_subnet_group.name,
+    vpc_security_group_ids=[database_security_grp],
+    publicly_accessible=False,
+    username=config.require('username'),
+    password=config.require('password'),
+    db_name=config.require('db_name'),
+    multi_az=False,
+    identifier=config.require('db_identifier'),
+    )
+
+print("MariaDb: ", mariadb_rds)
+
 #getting my recently created AMI ID
 # myami = aws.ec2.get_ami(executable_users=["self"],
 #                         most_recent=True)
@@ -144,15 +201,28 @@ aws.ec2.SecurityGroupIngressArgs(
 key_pair = aws.ec2.get_key_pair(key_name=config.require('key_name'),
     include_public_key=True,)
 
-print("fingerprint", key_pair.fingerprint)
-print("name", key_pair.key_name)
-print("id", key_pair.id)
+# print("fingerprint", key_pair.fingerprint)
+# print("name", key_pair.key_name)
+# print("id", key_pair.id)
+username = mariadb_rds.username
+password = mariadb_rds.password
+db_instance_endpoint = mariadb_rds.endpoint
 
+
+user_data_script = pulumi.Output.all(username, password,db_instance_endpoint).apply(lambda args: f"""#!/bin/bash
+ENV_FILE="/opt/application.properties"
+echo "username={args[0]}" >> $ENV_FILE
+echo "password={args[1]}" >> $ENV_FILE
+echo "endpoint={args[2]}" >> $ENV_FILE
+chown csye6225:csye6225 $ENV_FILE
+chmod 777 $ENV_FILE
+""")
 
 #creating ec2 instance
 web = aws.ec2.Instance("web",
     ami=config.require('myami'),
     key_name=key_pair.key_name,
+    user_data=user_data_script,
     instance_type=config.require('instance_type'),
     subnet_id=public_subnets[0].id,
     vpc_security_group_ids=[app_security_grp.id],
