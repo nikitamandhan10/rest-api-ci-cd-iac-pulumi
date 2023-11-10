@@ -15,7 +15,7 @@ config:
   pulumi_test:ec2_instance_name: api_instance
   pulumi_test:instance_type: t2.micro
   pulumi_test:security_group_name: application security group
-  pulumi_test:myami: ami-091878d14ecde4b78
+  pulumi_test:myami: ami-0b5a48c0701227aa5
   pulumi_test:db_security_group_name: database_security_grp
   pulumi_test:db_allocated_storage: 10
   pulumi_test:database: mariadb
@@ -25,3 +25,4 @@ config:
   pulumi_test:password: csye!6225
   pulumi_test:db_name: csye6225
   pulumi_test:db_identifier: csye6225
+  pulumi_test:domain_name: dev.iamoncloud.me

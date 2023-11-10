@@ -190,20 +190,38 @@ mariadb_rds = aws.rds.Instance("mariadb_rds",
     )
 
 print("MariaDb: ", mariadb_rds)
-
-#getting my recently created AMI ID
-# myami = aws.ec2.get_ami(executable_users=["self"],
-#                         most_recent=True)
-
-# print(myami.id)
-
 #getting key-pair
 key_pair = aws.ec2.get_key_pair(key_name=config.require('key_name'),
     include_public_key=True,)
 
-# print("fingerprint", key_pair.fingerprint)
-# print("name", key_pair.key_name)
-# print("id", key_pair.id)
+# Create an IAM role
+ec2_role = aws.iam.Role("ec2Role",
+    assume_role_policy=pulumi.Output.from_input("""{
+        "Version":"2012-10-17",
+        "Statement":[{
+            "Action":"sts:AssumeRole",
+            "Principal":{
+                "Service":"ec2.amazonaws.com"
+            },
+            "Effect":"Allow",
+            "Sid":""
+        }]
+    }""")
+)
+
+# Attach the CloudWatchAgentServerPolicy policy to the IAM role
+cloudwatch_agent_server_policy_attachment = aws.iam.RolePolicyAttachment("cloudwatchPolicyAttachment",
+    role=ec2_role.id,
+    policy_arn="arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+)
+
+# Define an Instance Profile that incorporates the defined role
+instance_profile = aws.iam.InstanceProfile(
+    "myInstanceProfile",
+    role=ec2_role.name
+)
+
+
 username = mariadb_rds.username
 password = mariadb_rds.password
 db_instance_endpoint = mariadb_rds.endpoint
@@ -216,6 +234,7 @@ echo "password={args[1]}" >> $ENV_FILE
 echo "endpoint={args[2]}" >> $ENV_FILE
 chown csye6225:csye6225 $ENV_FILE
 chmod 755 $ENV_FILE
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/cloudwatch-config.json -s
 """)
 
 #creating ec2 instance
@@ -226,6 +245,7 @@ web = aws.ec2.Instance("web",
     instance_type=config.require('instance_type'),
     subnet_id=public_subnets[0].id,
     vpc_security_group_ids=[app_security_grp.id],
+    iam_instance_profile=instance_profile.name,
     ebs_block_devices=[
         aws.ec2.InstanceEbsBlockDeviceArgs(
             volume_size=config.require('volume_size'),
@@ -238,6 +258,18 @@ web = aws.ec2.Instance("web",
     tags={
         "Name": config.require('ec2_instance_name'),
     })
+
+# Get the public IP address of the EC2 instance
+instance_public_ip = web.public_ip
+
+selected = aws.route53.get_zone(name=config.require('domain_name'))
+http = aws.route53.Record("http",
+    zone_id=selected.zone_id,
+    name=config.require('domain_name'),
+    allow_overwrite= True,
+    type="A",
+    ttl=60,
+    records=[instance_public_ip])
 
 
 #associating public subnets to public RT and private subnets to private RT
