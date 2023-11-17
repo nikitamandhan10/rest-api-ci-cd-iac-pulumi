@@ -26,4 +26,23 @@ config:
   pulumi_test:db_name: csye6225
   pulumi_test:db_identifier: csye6225
   pulumi_test:domain_name: demo.iamoncloud.me
+  pulumi_test:ec2_template: csye6225_ec2_launch_template
+  pulumi_test:target_grp_port: 8080
+  pulumi_test:health_chk_port: 8080
+  pulumi_test:health_chk_portol: HTTP
+  pulumi_test:health_chk_path: /healthz
+  pulumi_test:default_cooldown: 60
+  pulumi_test:desired_capacity: 1
+  pulumi_test:max_size: 3
+  pulumi_test:min_size: 1
+  pulumi_test:policy_type: SimpleScaling
+  pulumi_test:scaling_up_cnt: 1
+  pulumi_test:scaling_down_cnt: -1
+  pulumi_test:metric_name: CPUUtilization
+  pulumi_test:namespace: AWS/EC2
+  pulumi_test:alarm_period: 60
+  pulumi_test:evaluation_periods: 1
+  pulumi_test:scale_up_threshold: 5
+  pulumi_test:scale_down_threshold: 3
+
 
