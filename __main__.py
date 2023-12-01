@@ -5,7 +5,6 @@ import ipaddress, math
 import base64
 from pulumi_gcp import serviceaccount, iam, storage
 
-
 config = pulumi.Config()
 
 #Creating VPC
