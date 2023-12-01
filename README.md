@@ -12,3 +12,7 @@ To select pulumi stack: pulumi stack select demo
 To run code: pulumi up
 
 To destroy resources: pulumi destroy
+
+pulumi config set  gcp:project development-405906
+
+pulumi config set gcp:project csye6225-demo-406720
