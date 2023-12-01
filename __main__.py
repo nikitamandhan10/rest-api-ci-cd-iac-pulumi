@@ -3,6 +3,8 @@ import pulumi
 import pulumi_aws as aws
 import ipaddress, math
 import base64
+from pulumi_gcp import serviceaccount, iam, storage
+
 
 config = pulumi.Config()
 
@@ -234,23 +236,43 @@ cloudwatch_agent_server_policy_attachment = aws.iam.RolePolicyAttachment("cloudw
     policy_arn="arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 )
 
+# Create an IAM policy for `PutItem` DynamoDB action
+custom_policy_ec2 = aws.iam.Policy('customPolicyForEc2Sns',
+    description='EC2 to publish on sns',
+    policy='''{
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Effect": "Allow",
+            "Action": ["sns:Publish"],
+            "Resource": "*"
+         }]
+    }'''
+)
+
+aws.iam.RolePolicyAttachment('lambdaRoleCustomPolicy',
+    role=ec2_role.name,
+    policy_arn=custom_policy_ec2.arn)
+
 # Define an Instance Profile that incorporates the defined role
 instance_profile = aws.iam.InstanceProfile(
     "myInstanceProfile",
     role=ec2_role.name
 )
 
-
 username = mariadb_rds.username
 password = mariadb_rds.password
 db_instance_endpoint = mariadb_rds.endpoint
+region_name = aws.get_region().name
+# Create an SNS Topic
+sns_topic = aws.sns.Topic(config.require('sns_topic_name'))
 
-
-user_data_script = pulumi.Output.all(username, password,db_instance_endpoint).apply(lambda args: f"""#!/bin/bash
+user_data_script = pulumi.Output.all(username, password,db_instance_endpoint,sns_topic.arn,region_name).apply(lambda args: f"""#!/bin/bash
 ENV_FILE="/opt/application.properties"
 echo "username={args[0]}" >> $ENV_FILE
 echo "password={args[1]}" >> $ENV_FILE
 echo "endpoint={args[2]}" >> $ENV_FILE
+echo "sns_topic_arn={args[3]}" >> $ENV_FILE
+echo "region_name={args[4]}" >> $ENV_FILE
 chown csye6225:csye6225 $ENV_FILE
 chmod 755 $ENV_FILE
 sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/cloudwatch-config.json -s
@@ -404,3 +426,110 @@ for i in range(len(public_subnets)):
     aws.ec2.RouteTableAssociation("private_table_subnet_association_" + str(i+1),
                                   subnet_id=private_subnets[i].id,
                                   route_table_id=private_RT.id)
+
+# Create a DynamoDB table
+dynamodb_table = aws.dynamodb.Table(config.require('ddb_table_name'),
+    attributes=[
+        aws.dynamodb.TableAttributeArgs(
+            name="unique_id",
+            type="S",
+        ),
+    ],
+    hash_key="unique_id",
+    read_capacity=5,
+    write_capacity=5,
+)
+#creating service account
+service_account = serviceaccount.Account("csye6225-serviceAccount",
+    account_id="csye6225-serviceaccount",
+    display_name="csye6225_serviceAccount")
+
+# Add 'Storage Object Admin' iam policy binding to the service account
+binding = storage.BucketIAMMember('submission-bucket',
+    bucket=config.require('bucket_name'),
+    role='roles/storage.legacyBucketOwner',
+    member=pulumi.Output.concat('serviceAccount:', service_account.email))
+
+gcp_key = serviceaccount.Key("csye6225-gcp-key",
+    service_account_id=service_account.account_id)
+
+# IAM role for lambda execution
+lambda_role = aws.iam.Role('lambdaRole',
+    assume_role_policy=pulumi.Output.from_input({
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Action": "sts:AssumeRole",
+            "Principal": {
+                "Service": "lambda.amazonaws.com",
+            },
+            "Effect": "Allow",
+            "Sid": "",
+        }],
+    }))
+
+
+# Create an IAM policy for `PutItem` DynamoDB action
+custom_policy = aws.iam.Policy('customPolicyForLambda',
+    description='Put Item and SES policy',
+    policy='''{
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Effect": "Allow",
+            "Action": ["dynamodb:PutItem","ses:SendEmail"],
+            "Resource": "*"
+         }]
+    }'''
+)
+
+aws.iam.RolePolicyAttachment('lambdaRolePolicy',
+    role=lambda_role.name,
+    policy_arn='arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole')
+
+aws.iam.RolePolicyAttachment('lambdaRoleCustomPolicy',
+    role=lambda_role.name,
+    policy_arn=custom_policy.arn)
+
+# Creating a Lambda Layer
+layer = aws.lambda_.LayerVersion("lambda_layer",
+    code=pulumi.FileArchive("../lambda-layer-requests-python3.9-x86_64.zip"),
+    layer_name="supporting_packages_layer",
+    compatible_runtimes=["python3.10"],
+)
+
+# Create a lambda function
+lambda_func = aws.lambda_.Function('myLambdaFunction',
+    code=pulumi.AssetArchive({
+        '.': pulumi.FileArchive('../serverless/lambda_handler_folder'),
+    }),
+    role=lambda_role.arn,
+    handler='lambda_function.lambda_handler',
+    runtime='python3.10',
+    publish=True,
+    timeout=120,
+    layers=[layer.arn], # assigning the layer
+    environment=aws.lambda_.FunctionEnvironmentArgs(
+        variables={
+            "ddb_table_name": dynamodb_table.name,
+            "region": aws.get_region().name,
+            "gcp_key": gcp_key.private_key,
+            "bucket_name": config.require('bucket_name'),
+            "source_email": config.require('source_email')
+
+        },
+    )
+)
+
+# Give permission from SNS to Lambda
+aws.lambda_.Permission('lambdaPermission',
+    action="lambda:InvokeFunction",
+    function=lambda_func.name,
+    principal="sns.amazonaws.com",
+    source_arn=sns_topic.arn
+)
+
+# Create an SNS Topic Subscription to Lambda
+subscription = aws.sns.TopicSubscription('myTopicSubscription',
+    protocol="lambda",
+    endpoint=lambda_func.arn,
+    topic=sns_topic.arn
+)
