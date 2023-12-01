@@ -49,3 +49,4 @@ config:
   pulumi_test:ddb_table_name: csye6225-email-status
   pulumi_test:bucket_name: csye6225_assignment_submissions
   pulumi_test:source_email: niki.mandhan10@gmail.com
+  pulumi_test:lambda_timeout: 120

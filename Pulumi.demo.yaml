@@ -27,7 +27,7 @@ config:
   pulumi_test:max_size: "3"
   pulumi_test:metric_name: CPUUtilization
   pulumi_test:min_size: "1"
-  pulumi_test:myami: ami-0a981a66c8e563195
+  pulumi_test:myami: ami-012415e414d58bebf
   pulumi_test:namespace: AWS/EC2
   pulumi_test:password: csye!6225
   pulumi_test:policy_type: SimpleScaling
@@ -49,3 +49,4 @@ config:
   pulumi_test:ddb_table_name: csye6225-email-status
   pulumi_test:bucket_name: csye6225_demo
   pulumi_test:source_email: niki.mandhan10@gmail.com
+  pulumi_test:lambda_timeout: 120

@@ -249,7 +249,7 @@ custom_policy_ec2 = aws.iam.Policy('customPolicyForEc2Sns',
     }'''
 )
 
-aws.iam.RolePolicyAttachment('lambdaRoleCustomPolicy',
+aws.iam.RolePolicyAttachment('ec2RoleCustomPolicy',
     role=ec2_role.name,
     policy_arn=custom_policy_ec2.arn)
 
@@ -299,7 +299,6 @@ ec2_launch_template = aws.ec2.LaunchTemplate("ec2_launch_template",
 
     network_interfaces=[aws.ec2.LaunchTemplateNetworkInterfaceArgs(
         associate_public_ip_address='true',
-        # subnet_id=public_subnets[0].id,
         security_groups=[app_security_grp.id],
 
     )],
@@ -469,7 +468,7 @@ lambda_role = aws.iam.Role('lambdaRole',
 
 
 # Create an IAM policy for `PutItem` DynamoDB action
-custom_policy = aws.iam.Policy('customPolicyForLambda',
+custom_policy = aws.iam.Policy('customPolicyLambda',
     description='Put Item and SES policy',
     policy='''{
         "Version": "2012-10-17",
@@ -481,11 +480,11 @@ custom_policy = aws.iam.Policy('customPolicyForLambda',
     }'''
 )
 
-aws.iam.RolePolicyAttachment('lambdaRolePolicy',
+aws.iam.RolePolicyAttachment('lambdaRoleDefaultPolicy',
     role=lambda_role.name,
     policy_arn='arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole')
 
-aws.iam.RolePolicyAttachment('lambdaRoleCustomPolicy',
+aws.iam.RolePolicyAttachment('lambdaRoleCustomPolicyAttachment',
     role=lambda_role.name,
     policy_arn=custom_policy.arn)
 
@@ -505,7 +504,7 @@ lambda_func = aws.lambda_.Function('myLambdaFunction',
     handler='lambda_function.lambda_handler',
     runtime='python3.10',
     publish=True,
-    timeout=120,
+    timeout=config.require('lambda_timeout'),
     layers=[layer.arn], # assigning the layer
     environment=aws.lambda_.FunctionEnvironmentArgs(
         variables={
