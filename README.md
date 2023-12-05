@@ -16,3 +16,6 @@ To destroy resources: pulumi destroy
 pulumi config set  gcp:project development-405906
 
 pulumi config set gcp:project csye6225-demo-406720
+
+Importing certificate to acm
+aws acm import-certificate --certificate fileb:///full.pem --private-key fileb:///priv.pem
