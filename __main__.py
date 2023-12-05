@@ -395,8 +395,10 @@ load_balancer = aws.lb.LoadBalancer('csye6225-load-balancer',
 
 lb_listener = aws.lb.Listener("lb_listener",
     load_balancer_arn=load_balancer.arn,
-    port=80,
-    protocol="HTTP",
+    port=443,
+    protocol="HTTPS",
+    ssl_policy=config.require('ssl_policy'),
+    certificate_arn=config.require('certificate_arn'),
     default_actions=[aws.lb.ListenerDefaultActionArgs(
         type="forward",
         target_group_arn=target_group.arn,
