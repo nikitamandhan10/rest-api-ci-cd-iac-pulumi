@@ -50,5 +50,5 @@ config:
   pulumi_test:bucket_name: csye6225_demo
   pulumi_test:source_email: niki.mandhan10@gmail.com
   pulumi_test:lambda_timeout: 120
-  pulumi_test:certificate_arn: arn:aws:acm:us-west-1:725307250503:certificate/1ed8b3f7-d84e-4c8e-b9d5-94b396a489a0
+  pulumi_test:certificate_arn: arn:aws:acm:us-west-1:725307250503:certificate/1a762af9-f4fd-4893-a408-7cae8a650a74
   pulumi_test:ssl_policy: ELBSecurityPolicy-TLS13-1-2-2021-06
